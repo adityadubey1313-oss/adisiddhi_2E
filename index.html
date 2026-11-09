@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="styles.css?v=20261028-cover-overlay" />
   </head>
   <body>
-    <audio id="backgroundMusic" src="wedding-song.mp3" loop preload="none"></audio>
+    <audio id="backgroundMusic" src="wedding-song2.mp3" preload="none"></audio>
     <button class="music-toggle" id="musicToggle" type="button" aria-label="Mute background music" aria-pressed="true" hidden>
       <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 6 9H3v6h3l5 4V5Z"></path><path class="music-waves" d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"></path><path class="music-silent" d="m16 9 5 6m0-6-5 6"></path></svg>
     </button>
@@ -62,17 +62,6 @@
           <span class="family-divider" aria-hidden="true"></span>
         </section>
 
-        <section class="section" id="venues">
-          <h2 class="section-heading" id="venueTitle">Reception Venue &amp; Directions</h2>
-          <div class="venue-grid" id="venueGrid">
-            <article class="venue-card">
-              <h3>Hotel Gulzar</h3>
-              <p>Madan Mahal Chowk to Shankaracharya Chowk Road, Mahanadd, Jabalpur, Madhya Pradesh, India.</p>
-              <div class="venue-links"><a class="button-link directions-link" href="https://maps.google.com/?q=Hotel+Gulzar+Jabalpur" target="_blank" rel="noopener noreferrer">Get directions</a></div>
-            </article>
-          </div>
-        </section>
-
         <section class="section" id="family">
           <div class="family-grid" id="familyGrid">
             <article class="family-group">
@@ -94,6 +83,17 @@
                 <p>Ambar Dubey</p>
                 <p>Ambuj Dubey</p>
               </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="venues">
+          <h2 class="section-heading" id="venueTitle">Reception Venue &amp; Directions</h2>
+          <div class="venue-grid" id="venueGrid">
+            <article class="venue-card">
+              <h3>Hotel Gulzar</h3>
+              <p>Madan Mahal Chowk to Shankaracharya Chowk Road, Mahanadd, Jabalpur, Madhya Pradesh, India.</p>
+              <div class="venue-links"><a class="button-link directions-link" href="https://maps.google.com/?q=Hotel+Gulzar+Jabalpur" target="_blank" rel="noopener noreferrer">Get directions</a></div>
             </article>
           </div>
         </section>
@@ -131,6 +131,6 @@
     </div>
 
     <script src="invitation-data.js?v=20261028-scroll"></script>
-    <script src="app.js?v=20261028-music-fallback"></script>
+    <script src="app.js?v=20261109-two-play-audio"></script>
   </body>
 </html>

@@ -364,24 +364,91 @@ function initMusic() {
   const audio = document.getElementById('backgroundMusic');
   const toggle = document.getElementById('musicToggle');
   const status = document.getElementById('musicStatus');
+  if (audio.dataset.musicInitialized) return;
+  audio.dataset.musicInitialized = 'true';
   let playbackPending = false;
+  let completedPlays = 0;
+  let sequenceFinished = false;
+  let manuallyStopped = false;
+  let resumeAfterPageShow = false;
+  let suspended = false;
+  let disposed = false;
+
+  function stopMusic() {
+    removeInteractionListeners();
+    if (!audio.muted) audio.muted = true;
+    if (!audio.paused) audio.pause();
+    updateMusicControl();
+  }
+
+  function onManualStop() {
+    manuallyStopped = true;
+    resumeAfterPageShow = false;
+    stopMusic();
+  }
+
+  function onPlaying() {
+    if (suspended) {
+      audio.pause();
+      updateMusicControl();
+      return;
+    }
+    if (disposed || sequenceFinished || manuallyStopped) {
+      stopMusic();
+      return;
+    }
+    removeInteractionListeners();
+    updateMusicControl();
+  }
+
+  function onEnded() {
+    if (!audio.ended || disposed || sequenceFinished || manuallyStopped) return;
+    completedPlays += 1;
+    if (completedPlays === 2) {
+      sequenceFinished = true;
+      stopMusic();
+      status.textContent = 'Both plays of the background music have finished.';
+    } else {
+      audio.currentTime = 0;
+      startMusic();
+    }
+  }
+
+  function onVolumeChange() {
+    if (sequenceFinished || disposed) {
+      stopMusic();
+    } else if (audio.muted || audio.volume === 0) {
+      onManualStop();
+    } else {
+      updateMusicControl();
+    }
+  }
 
   function updateMusicControl() {
-    const enabled = !audio.muted;
+    const enabled = !audio.muted && (!audio.paused || playbackPending) && audio.volume > 0 && !sequenceFinished;
     toggle.setAttribute('aria-label', enabled ? 'Mute background music' : 'Unmute background music');
     toggle.setAttribute('aria-pressed', String(enabled));
     toggle.title = enabled ? 'Mute background music' : 'Unmute background music';
   }
 
   async function startMusic() {
-    if (audio.muted || playbackPending || !audio.paused) return;
+    if (disposed || suspended || sequenceFinished || manuallyStopped || audio.muted || playbackPending || !audio.paused) return;
     playbackPending = true;
+    updateMusicControl();
     try {
       await audio.play();
-      status.textContent = '';
+      if (disposed || sequenceFinished || manuallyStopped) {
+        stopMusic();
+      } else if (suspended) {
+        audio.pause();
+      } else {
+        status.textContent = '';
+      }
     } catch (error) {
+      if (disposed || sequenceFinished || manuallyStopped) return;
       if (error.name === 'NotAllowedError') {
-        console.info('Background music awaits a browser-permitted user interaction.');
+        status.textContent = 'Tap the screen or use the keyboard to start the background music.';
+        addInteractionListeners();
       } else {
         console.warn('Background music could not start.', error);
         status.textContent = 'Background music is temporarily unavailable.';
@@ -392,25 +459,38 @@ function initMusic() {
     }
   }
 
-  audio.loop = true;
+  audio.loop = false;
   toggle.hidden = false;
-  audio.addEventListener('playing', removeInteractionListeners, { once: true });
-  audio.addEventListener('play', updateMusicControl);
-  audio.addEventListener('pause', updateMusicControl);
-  audio.addEventListener('volumechange', updateMusicControl);
-  audio.addEventListener('error', () => {
+  function onError() {
+    removeInteractionListeners();
+    audio.pause();
     console.warn('The invitation soundtrack could not be loaded.', audio.error);
     status.textContent = 'Background music is unavailable.';
     updateMusicControl();
-  });
-  toggle.addEventListener('click', () => {
-    audio.muted = !audio.muted;
-    if (!audio.muted) {
+  }
+  function onToggle() {
+    if (sequenceFinished || disposed) return;
+    if ((!audio.paused || playbackPending) && !audio.muted && !manuallyStopped) {
+      onManualStop();
+    } else {
+      manuallyStopped = false;
+      audio.muted = false;
+      if (audio.volume === 0) audio.volume = 1;
       if (audio.error) audio.load();
       startMusic();
     }
     updateMusicControl();
-  });
+  }
+  const audioListeners = {
+    playing: onPlaying,
+    play: onPlaying,
+    pause: updateMusicControl,
+    ended: onEnded,
+    volumechange: onVolumeChange,
+    error: onError
+  };
+  Object.entries(audioListeners).forEach(([name, listener]) => audio.addEventListener(name, listener));
+  toggle.addEventListener('click', onToggle);
 
   function onInteraction(event) {
     if (toggle.contains(event.target)) return;
@@ -422,10 +502,35 @@ function initMusic() {
     document.removeEventListener('click', onInteraction, true);
     document.removeEventListener('keydown', onInteraction, true);
   }
-  document.addEventListener('pointerup', onInteraction, { capture: true, passive: true });
-  document.addEventListener('click', onInteraction, { capture: true, passive: true });
-  document.addEventListener('keydown', onInteraction, { capture: true, passive: true });
-  window.addEventListener('pagehide', () => audio.pause());
+  function addInteractionListeners() {
+    document.addEventListener('pointerup', onInteraction, { capture: true, passive: true });
+    document.addEventListener('click', onInteraction, { capture: true, passive: true });
+    document.addEventListener('keydown', onInteraction, { capture: true, passive: true });
+  }
+  addInteractionListeners();
+  function onPageHide(event) {
+    resumeAfterPageShow = !audio.paused && !audio.muted && !manuallyStopped && !sequenceFinished;
+    suspended = true;
+    removeInteractionListeners();
+    audio.pause();
+    if (!event.persisted) {
+      disposed = true;
+      Object.entries(audioListeners).forEach(([name, listener]) => audio.removeEventListener(name, listener));
+      toggle.removeEventListener('click', onToggle);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('pageshow', onPageShow);
+    }
+  }
+  function onPageShow(event) {
+    suspended = false;
+    if (event.persisted && resumeAfterPageShow && !manuallyStopped && !sequenceFinished) {
+      resumeAfterPageShow = false;
+      addInteractionListeners();
+      startMusic();
+    }
+  }
+  window.addEventListener('pagehide', onPageHide);
+  window.addEventListener('pageshow', onPageShow);
 
   updateMusicControl();
   startMusic();
